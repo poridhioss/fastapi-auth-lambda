@@ -25,7 +25,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
+_REGION = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-1"
 
 USERS_TABLE = os.getenv("USERS_TABLE", "Users")
 SESSIONS_TABLE = os.getenv("SESSIONS_TABLE", "Sessions")
