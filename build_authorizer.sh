@@ -27,7 +27,7 @@ pip3 install \
     --upgrade \
     pyjwt
 
-cp authorizer.py jwt_utils.py __init__.py build/authorizer/
+cp authorizer.py jwt_utils.py build/authorizer/
 
 (cd build/authorizer && zip -r ../../authorizer.zip . > /dev/null)
 
