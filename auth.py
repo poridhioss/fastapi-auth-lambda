@@ -55,7 +55,7 @@ router = APIRouter()
 
 # Authorizer passes the verified user_id on this header. If the header is
 # missing on a protected route, that's a wiring bug - 401.
-PRINCIPAL_HEADER = "x-user_id"
+PRINCIPAL_HEADER = "x-principal-user-id"
 
 # Throttle / transient DynamoDB errors should surface as 503, not 500.
 _TROUBLE_CODES = {
@@ -213,21 +213,34 @@ def refresh(payload: RefreshRequest):
 
 @router.get("/me", response_model=MeResponse)
 @_handle_ddb_errors
-def me(request: Request,
-        x_principal_user_id: str | None = Header(default=None, alias=PRINCIPAL_HEADER)):
+def me(request: Request):
     """Return the currently authenticated user's profile.
 
-    `x_principal_user_id` is set by the Lambda authorizer AFTER it
-    verified the JWT signature. We do not re-verify here - that's the
-    whole point of doing auth at the edge.
+    The Lambda authorizer verifies the JWT before this route runs. API Gateway
+    normally forwards the verified ``user_id`` as ``x-principal-user-id``.
+    HTTP API v2 integrations can omit custom authorizer context, so this route
+    safely falls back to re-verifying the Bearer access token.
     """
-    if not x_principal_user_id:
-        # Should never happen if API Gateway is wired correctly: the
-        # authorizer is supposed to inject this header on every /me call.
+    user_id = request.headers.get(PRINCIPAL_HEADER)
+
+    if not user_id:
+        authorization = request.headers.get("authorization", "")
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            try:
+                claims = decode_token(token.strip(), expected_type="access")
+                user_id = claims.get("sub")
+            except TokenError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=str(exc),
+                )
+
+    if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Missing principal")
 
-    user = get_user_by_id(x_principal_user_id)
+    user = get_user_by_id(user_id)
     if user is None:
         # The token was valid but the user has been deleted since.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
