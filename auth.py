@@ -55,7 +55,7 @@ router = APIRouter()
 
 # Authorizer passes the verified user_id on this header. If the header is
 # missing on a protected route, that's a wiring bug - 401.
-PRINCIPAL_HEADER = "x-principal-user-id"
+PRINCIPAL_HEADER = "x-user_id"
 
 # Throttle / transient DynamoDB errors should surface as 503, not 500.
 _TROUBLE_CODES = {

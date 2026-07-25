@@ -166,8 +166,8 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
         logger.debug("allow user_id=%s route=%s", user_id, event.get("routeKey"))
         # API Gateway injects each context field as a header named
-        # x-<lowercase-field> on the backend invocation. The auth router
-        # reads `x-principal-user-id`.
+        # x-user_id on the backend invocation. The auth router
+        # reads `x-user_id`.
         return {
             "isAuthorized": True,
             "context": {
