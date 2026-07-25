@@ -218,16 +218,30 @@ def me(request: Request,
     """Return the currently authenticated user's profile.
 
     `x_principal_user_id` is set by the Lambda authorizer AFTER it
-    verified the JWT signature. We do not re-verify here - that's the
-    whole point of doing auth at the edge.
+    verified the JWT signature. With simple responses, API Gateway does NOT
+    inject context as request headers, so we fall back to re-verifying the
+    Bearer access token from the Authorization header.
     """
-    if not x_principal_user_id:
-        # Should never happen if API Gateway is wired correctly: the
-        # authorizer is supposed to inject this header on every /me call.
+    user_id = x_principal_user_id
+
+    if not user_id:
+        authorization = request.headers.get("authorization", "")
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            try:
+                claims = decode_token(token.strip(), expected_type="access")
+                user_id = claims.get("sub")
+            except TokenError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=str(exc),
+                )
+
+    if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Missing principal")
 
-    user = get_user_by_id(x_principal_user_id)
+    user = get_user_by_id(user_id)
     if user is None:
         # The token was valid but the user has been deleted since.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
